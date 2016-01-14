@@ -27,8 +27,8 @@
             }
             destinations.push(floorNum);
         }
-        var goingUpComparator = function (a, b) {return a > b;}
-        var goingDownComparator = function(a, b) {return a < b;}
+        var goingUpComparator = function (a, b) {return a < b;}
+        var goingDownComparator = function(a, b) {return a > b;}
 
         foreach(elevators, function(elevator, i) {
             elevator.on("idle", function() {
@@ -53,21 +53,34 @@
             
             elevator.goToFloor(0);
         });
-                   
+        var isElevatorFree = function(elevator, floorNum, direction) {
+            if (elevator.loadFactor() < 0.8) {
+                var diff = floorNum - elevator.currentFloor;
+                if (diff == 0 || elevator.destinationDirection() != direction) {
+                    // elevator is in the floor, what to do?
+                    return false;
+                } else if (diff < 0) {
+                    // the elevator is below
+                    return direction == "up";
+                } else {
+                    // the elevator is above
+                    return direction == "down";
+                }
+            } else return false;
+        } 
+
         var findElevator = function(floor, direction, comparator) {
-            if (!findAndApply(elevators, function(elevator) {
-                return elevator.loadFactor() < 0.8 &&
-                    (floor.floorNum() - elevator.currentFloor() >= 0) &&
-                    elevator.destinationDirection() == direction;
-            }, function(elevator) {
-                addToDestination(elevator.destinationQueue, 
-                                floor.floorNum(),
-                                comparator);
-                elevator.checkDestinationQueue();
-            })) {
-                // No elevator was given the task. Give it to the last elevator
-                elevators[elevators.length-1].goToFloor(floor.floorNum());
+            var floorNum = floor.floorNum();
+            for (i = 0; i < elevators.length; i++) {
+                var elevator = elevators[i];
+                if (isElevatorFree(elevator, floorNum, comparator)) {
+                    addToDestination(elevator.destinationQueue, floorNum, comparator);
+                    elevator.checkDestinationQueue();
+                    return;
+                }
             }
+            // No elevator was given the task. Give it to the last elevator
+            elevators[elevators.length-1].goToFloor(floorNum);
         }
 
         foreach(floors, function(floor, i) {
