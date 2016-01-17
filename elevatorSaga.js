@@ -1,6 +1,15 @@
 {
     init: function(elevators, floors) {
-        // Put one to go up and same one to go down, when number chnages direction or repeates we now we are supposed to change direction. Presses inside the elevator follow the same rule people will not get in wanting to go on the oposite direction once lights are controlled
+        // Put one to go up and same one to go down, when number chnages direction or
+        // repeates we now we are supposed to change direction. Presses inside the 
+        // elevator follow the same rule people will not get in wanting to go on the 
+        // oposite direction once lights are controlled
+        // When adding destinations, from the outside, to go down, when elevator is
+        // going up, the current behaviour add them in ascending order, but the light is
+        // saying up so passenger don't get in and it results in floors being abandoned
+        // keeping an external queue where the direction is maintained might be a better
+        // solution
+
         // Control the light.
         var foreach = function(collection, fun) {
             for (i = 0; i < collection.length; i++) fun(collection[i], i);
@@ -19,6 +28,10 @@
             var prev = destinations[0];
             for (i=0; i<destinations.length; i++) {
                 var d = destinations[i];
+                if (d == floor) {
+                    console.log("Already going to "+d+". Skip");
+                    return;
+                }
                 if (isAfter(d,floor)) {
                     destinations.splice(i, 0, floor);
                     console.log("Destinations after splice: " + destinations);
@@ -26,49 +39,36 @@
                 }
                 if (isAfter(prev,d)) {
                     // Reach the end of the descending sequence. Insert in ascending order
+                    console.log("!!!Direction sequence finished at index "+i+". Nothing inserted: " + destinations);
                     return;
                 }
                 prev = d;
-            }   
+            }
+            console.log("!!!Couldn't insert floor ");
         }
         // Insert after first desc sequence
         // Insert after first asc sequence
-        var addToDestination = function(destinations, floorNum, isAfter) {
-            console.log("add "+floorNum+" to "+destinations);
-            for (i = 0; i < destinations.length; i++) {
-                var destination = destinations[i];
-                if (destination == floorNum) {
-                    console.log("Floor already a destination: " + destinations);
-                    return;
-                }
-                if (isAfter(destination,floorNum)) {
-                    destinations.splice(i, 0, floorNum);
-                    console.log("Destinations after splice: " + destinations);
-                    return;
-                }
-            }
-            destinations.push(floorNum);
-            console.log("Destinations after append: " + destinations);
-        }
-        var goingUpComparator = function (a, b) {return a < b;}
-        var goingDownComparator = function(a, b) {return a > b;}
+        
+        var goingUpComparator = function (a, b) {return a > b;}
+        var goingDownComparator = function(a, b) {return a < b;}
 
-        foreach(elevators, function(elevator, i) {
+        elevators.foreach(function(elevator, i, arr) {
             elevator.on("idle", function() {
                 elevator.goToFloor(i%floors.length);
             });
             
             elevator.on("floor_button_pressed", function(floorNum) {
-                console.log("Button pressed "+floorNum+"inside the elevator");
-                if (elevator.destinationDirection() == "stopped") {
+                console.log("Button pressed "+floorNum+" inside the elevator");
+                if (elevator.destinationQueue.length <= 0) {
                     console.log("Sending elevator straight to "+floorNum+" from stopped");
                     elevator.goToFloor(floorNum);
                 } else {
-                    var compFun = goingDownComparator;
-                    if (elevator.destinationDirection() == "up") {
-                        compFun = goingUpComparator;
-                    } 
-                    addToDestination(elevator.destinationQueue, floorNum, compFun);
+                    var dir = elevator.destinationQueue[0] - elevator.currentFloor();
+                    if (dir < 0) {
+                        prepend(elevator.destinationQueue, floorNum, goingDownComparator);
+                    } else {
+                        prepend(elevator.destinationQueue, floorNum, goingUpComparator);
+                    }
                     elevator.checkDestinationQueue();
                 }
             });
@@ -103,6 +103,7 @@
 
         var findElevator = function(floor, direction, comparator) {
             var floorNum = floor.floorNum();
+            console.log("Search elevator to go to "+floorNum+" "+direction);
             for (i = 0; i < elevators.length; i++) {
                 var elevator = elevators[i];
                 if (isElevatorFree(elevator, floorNum, comparator)) {
@@ -112,11 +113,12 @@
                     return;
                 }
             }
+            console.log("No elevator was free, adding to the last one");
             // No elevator was given the task. Give it to the last elevator
             elevators[elevators.length-1].goToFloor(floorNum);
         }
 
-        foreach(floors, function(floor, i) {
+        floots.foreach(function(floor, i, arr) {
             floor.on("up_button_pressed", function() {
                 findElevator(floor, "up", goingUpComparator);
             });
@@ -124,7 +126,6 @@
             floor.on("down_button_pressed", function() {
                findElevator(floor, "down", goingDownComparator); 
             });
-            
         });
     },
     update: function(dt, elevators, floors) {
