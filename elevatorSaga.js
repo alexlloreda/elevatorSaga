@@ -1,6 +1,7 @@
 {
   init: function(elevators, floors) {
     function addFloorDuringAscent(floorNum, elevator) {
+      console.log("Adding floor ", floorNum," during ascent with queue", elevator.destinationQueue);
       var localQueue = [];
       var searching = true;
       for (i = 0; i < localQueue.length; i++) {
@@ -23,9 +24,11 @@
       }
       elevator.destinationQueue = localQueue;
       elevator.checkDestinationQueue();
+      console.log("Added floor ", elevator.destinationQueue);
     }
 
     function addFloorAfterAscent(floorNum, elevator) {
+      console.log("Adding floor ", floorNum," after ascent with queue", elevator.destinationQueue);
       var prevFloor = elevator.currentFloor() - 1;
       var i = 0;
       var newQueue = [];
@@ -51,9 +54,11 @@
       }
       elevator.destinationQueue = newQueue;
       elevator.checkDestinationQueue();
+      console.log("Added floor ", elevator.destinationQueue);
     }
 
     function addFloorDuringDescent(floorNum, elevator) {
+      console.log("Adding floor ", floorNum," during descent with queue", elevator.destinationQueue);
       var localQueue = [];
       var searching = true;
       for (i = 0; i < localQueue.length; i++) {
@@ -76,9 +81,11 @@
       }
       elevator.destinationQueue = localQueue;
       elevator.checkDestinationQueue();
+      console.log("Added floor ", elevator.destinationQueue);
     }
 
     function addFloorAfterDescent(floorNum, elevator) {
+      console.log("Adding floor ", floorNum," after descent with queue", elevator.destinationQueue);
       var prevFloor = elevator.currentFloor() + 1;
       var i = 0;
       var newQueue = [];
@@ -104,6 +111,7 @@
       }
       elevator.destinationQueue = newQueue;
       elevator.checkDestinationQueue();
+      console.log("Added floor ", elevator.destinationQueue);
     }
 
     var elevator = elevators[0];
@@ -214,6 +222,7 @@
     }
 
     for (var i = 0; i < floors.length; i++) {
+      var floor = floors[i];
       floor.on("up_button_pressed", floorUpButtonPressed(i));
       floor.on("down_button_pressed", floorDownButtonPressed(i));
     }
