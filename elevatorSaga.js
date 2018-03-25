@@ -1,34 +1,26 @@
 {
   init: function(elevators, floors) {
-    function addFloorDuringAscent(floorNum, elevator) {
-      console.log("Adding floor ", floorNum," during ascent with queue", elevator.destinationQueue);
-      var localQueue = [];
-      var searching = true;
-      for (i = 0; i < localQueue.length; i++) {
-        var floor = elevator.destinationQueue[i];
+    function ascentComparator(a,b) { return a < b; }
+    function descentComparator(a,b) { return a > b;}
 
-        if (searching) {
-          if (floor < floorNum) {
-            localQueue.push(floor);
-          } else if (floor == floorNum) {
-            localQueue.push(floor);
-            searching = false;
-          } else if (floor > floorNum) {
-            localQueue.push(floorNum);
-            localQueue.push(floor);
-            searching = false;
-          }
-        } else {
-          localQueue.push(floor);
-        }
+    function findPosition(floorNum, queue, isBefore, startIndex) {
+      var i = startIndex;
+      while (i < queue.length && isBefore(queue[i], floorNum)) {
+        i++;
       }
-      elevator.destinationQueue = localQueue;
+      return i;
+    }
+
+    function addFloorDuringAscent(floorNum, elevator) {
+      console.log("Adding floor ", floorNum, " during ascent with queue", elevator.destinationQueue);
+      var insertionIndex = findPosition(floorNum, elevator.destinationQueue, ascentComparator);
+      elevator.destinationQueue.splice(insertionIndex, 0, floorNum);
       elevator.checkDestinationQueue();
       console.log("Added floor ", elevator.destinationQueue);
     }
 
     function addFloorAfterAscent(floorNum, elevator) {
-      console.log("Adding floor ", floorNum," after ascent with queue", elevator.destinationQueue);
+      console.log("Adding floor ", floorNum, " after ascent with queue", elevator.destinationQueue);
       var prevFloor = elevator.currentFloor() - 1;
       var i = 0;
       var newQueue = [];
@@ -58,34 +50,15 @@
     }
 
     function addFloorDuringDescent(floorNum, elevator) {
-      console.log("Adding floor ", floorNum," during descent with queue", elevator.destinationQueue);
-      var localQueue = [];
-      var searching = true;
-      for (i = 0; i < localQueue.length; i++) {
-        var floor = elevator.destinationQueue[i];
-
-        if (searching) {
-          if (floor > floorNum) {
-            localQueue.push(floor);
-          } else if (floor == floorNum) {
-            localQueue.push(floor);
-            searching = false;
-          } else if (floor < floorNum) {
-            localQueue.push(floorNum);
-            localQueue.push(floor);
-            searching = false;
-          }
-        } else {
-          localQueue.push(floor);
-        }
-      }
-      elevator.destinationQueue = localQueue;
+      console.log("Adding floor ", floorNum, " during descent with queue", elevator.destinationQueue);
+      var insertionIndex = findPosition(floorNum, elevator.destinationQueue, descentComparator);
+      elevator.destinationQueue.splice(insertionIndex, 0, floorNum);
       elevator.checkDestinationQueue();
       console.log("Added floor ", elevator.destinationQueue);
     }
 
     function addFloorAfterDescent(floorNum, elevator) {
-      console.log("Adding floor ", floorNum," after descent with queue", elevator.destinationQueue);
+      console.log("Adding floor ", floorNum, " after descent with queue", elevator.destinationQueue);
       var prevFloor = elevator.currentFloor() + 1;
       var i = 0;
       var newQueue = [];
@@ -114,57 +87,60 @@
       console.log("Added floor ", elevator.destinationQueue);
     }
 
-    var elevator = elevators[0];
-    elevator.stop();
-    elevator.on("idle", function() {
-      // Do nothing for now
-      console.log("elevator idle");
-      console.log("Destination queue", elevator.destinationQueue);
-      elevator.goToFloor(0);
-    });
-    elevator.on("floor_button_pressed", function(floorNum) {
-      // Find out current state (idle | goingUp | goingDown)
-      console.log("Elevator Floor button ", floorNum, " pressed");
-      if ("stopped" == elevator.destinationDirection()) {
-        console.log("Elevator is stopped");
-        elevator.goingUpIndicator(floorNum >= elevator.currentFloor());
-        elevator.goingDownIndicator(floorNum <= elevator.currentFloor());
-        elevator.goToFloor(floorNum);
-
-      } else if ("up" == elevator.destinationDirection()) {
-        console.log("Elevator is going up");
-        if (floorNum > elevator.currentFloor()) {
-          // Add the floor to the planned stops, in order
-          addFloorDuringAscent(floorNum, elevator);
-        } else {
-          // Add the floor to the list of descending floors
-          addFloorAfterAscent(floorNum, elevator);
+    elevators.forEach(function(elevator) {
+      elevator.on("idle", function() {
+        // Do nothing for now
+        console.log("elevator idle");
+        console.log("Destination queue", elevator.destinationQueue);
+        elevator.goToFloor(0);
+      });
+      elevator.on("floor_button_pressed", function(floorNum) {
+        // Find out current state (idle | goingUp | goingDown)
+        console.log("Elevator Floor button ", floorNum, " pressed");
+        if ("stopped" == elevator.destinationDirection()) {
+          console.log("Elevator is stopped");
+          elevator.goingUpIndicator(floorNum >= elevator.currentFloor());
+          elevator.goingDownIndicator(floorNum <= elevator.currentFloor());
+          if (floorNum > elevator.currentFloor()) {
+            addFloorDuringAscent(floorNum, elevator);
+          } else {
+            addFloorDuringDescent(floorNum, elevator);
+          }
+        } else if ("up" == elevator.destinationDirection()) {
+          console.log("Elevator is going up");
+          if (floorNum > elevator.currentFloor()) {
+            // Add the floor to the planned stops, in order
+            addFloorDuringAscent(floorNum, elevator);
+          } else {
+            // Add the floor to the list of descending floors
+            addFloorAfterAscent(floorNum, elevator);
+          }
+        } else /* "down" */ {
+          console.log("Elevator is going down");
+          if (floorNum < elevator.currentFloor()) {
+            // Add the floor to the planned stops, in order
+            addFloorDuringDescent(floorNum, elevator);
+          } else {
+            // Add the floor to the list of ascending floors
+            addFloorAfterDescent(floorNum, elevator);
+          }
         }
-      } else /* "down" */ {
-        console.log("Elevator is going down");
-        if (floorNum < elevator.currentFloor()) {
-          // Add the floor to the planned stops, in order
-          addFloorDuringDescent(floorNum, elevator);
-        } else {
-          // Add the floor to the list of ascending floors
-          addFloorAfterDescent(floorNum, elevator);
-        }
-      }
-      console.log("Elevator Finished processing the floor button press ", elevator.destinationQueue);
-    });
+        console.log("Elevator Finished processing the floor button press ", elevator.destinationQueue);
+      });
 
-    elevator.on("stopped_at_floor", function(floorNum) {
-      console.log("Elevator stopped at floor ", floorNum);
-      nextFloor = floorNum;
-      i = 0;
-      while (nextFloor == floorNum && elevator.destinationQueue.length > i) {
-        nextFloor = elevator.destinationQueue[i];
-        i++;
-      }
-      console.log("Next floor ", nextFloor);
-      console.log("Next destination ", elevator.destinationQueue);
-      elevator.goingUpIndicator(nextFloor >= floorNum);
-      elevator.goingDownIndicator(nextFloor <= floorNum);
+      elevator.on("stopped_at_floor", function(floorNum) {
+        console.log("Elevator stopped at floor ", floorNum);
+        nextFloor = floorNum;
+        i = 0;
+        while (nextFloor == floorNum && elevator.destinationQueue.length > i) {
+          nextFloor = elevator.destinationQueue[i];
+          i++;
+        }
+        console.log("Next floor ", nextFloor);
+        console.log("Next destination ", elevator.destinationQueue);
+        elevator.goingUpIndicator(nextFloor >= floorNum);
+        elevator.goingDownIndicator(nextFloor <= floorNum);
+      });
     });
 
     function floorUpButtonPressed(floorNum) {
@@ -172,25 +148,25 @@
         console.log("up_button_pressed on floor ", floorNum);
         // Find nearest elevator with capacity and going up or idle
         var elevator = elevators[0]; // Stub
-        /*
+
         var elevatorFloor = elevator.currentFloor();
-        if (elevatorFloor < floor.floorNum() &&
-          elevator.loadFactor() < 0.95 &&
-          elevator.destinationDirection() == "up") {
-          addFloorDuringAscent(floor.floorNum(), elevator);
-        } else if (elevatorFloor == floor.floorNum() &&
-          elevator.loadFactor() < 0.95 &&
-          (elevator.destinationDirection() == "up" || elevator.destinationDirection() == "stopped")
-        ) {
-          // Add the destination to the list
-          // Would this happen?
-          elevator.goToFloor(floor.floorNum(), true);
+        if (elevatorFloor < floorNum && elevator.loadFactor() < 0.95) {
+          if (elevator.destinationDirection() == "up") {
+            addFloorDuringAscent(floorNum, elevator);
+          } else {
+            addFloorAfterDescent(floorNum, elevator);
+          }
+        } else if (elevatorFloor > floorNum && elevator.loadFactor() < 0.95) {
+          if (elevator.destinationDirection() == "down") {
+            addFloorAfterDescent(floorNum, elevator);
+          } else {
+            addFloorAfterAscent(floorNum, elevator);
+          }
         } else {
-          addFloorAfterDescent(floor.floorNum(), elevator);
+          // This else case is simplified for now.
+          elevator.goToFloor(floorNum);
         }
-        */
-        elevator.goToFloor(floorNum);
-        console.log("end up_button_pressed sending elevator to ", floorNum);
+        console.log("updated destinationQueue ", elevator.destinationQueue);
       };
     }
 
@@ -199,25 +175,38 @@
         console.log("down_button_pressed on floor ", floorNum);
         // Find nearest elevator with capacity and going down or idle
         elevator = elevators[0]; // Stub
-        /*
-        elevatorFloor = elevator.currentFloor();
-        if (elevatorFloor > floor.floorNum() &&
-          elevator.loadFactor() < 0.95 &&
-          elevator.destinationDirection() == "down") {
-          addFloorDuringDescent(floor.floorNum(), elevator);
-        } else if (elevatorFloor == floor.floorNum() &&
-          elevator.loadFactor() < 0.95 &&
-          (elevator.destinationDirection() == "down" || elevator.destinationDirection() == "stopped")
-        ) {
-          // Add the destination to the list
-          // Would this happen?
-          elevator.goToFloor(floor.floorNum(), true);
+
+        var elevatorFloor = elevator.currentFloor();
+        if (elevator.loadFactor() < 0.95) {
+          if (elevatorFloor < floorNum) {
+            if (elevator.destinationDirection() == "up") {
+              addFloorAfterAscent(floorNum, elevator);
+            } else {
+              addFloorAfterDescent(floorNum, elevator);
+            }
+          } else if (elevatorFloor > floorNum) {
+            if (elevator.destinationDirection() == "down") {
+              addFloorDuringDescent(floorNum, elevator);
+            } else {
+              addFloorAfterAscent(floorNum, elevator);
+            }
+          } else {
+            // Same floor
+            if (elevator.destinationDirection() == "up") {
+              addFloorAfterAscent(floorNum, elevator);
+            } else {
+              elevator.goToFloor(floorNum, true);
+              elevator.goingDownIndicator(true);
+            }
+          }
         } else {
-          addFloorAfterAscent(floor.floorNum(), elevator);
+          if (elevator.destinationDirection() == "up") {
+            addFloorAfterAscent(floorNum, elevator);
+          } else {
+            elevator.goToFloor(floorNum);
+          }
         }
-        */
-        elevator.goToFloor(floorNum);
-        console.log("end down_button_pressed");
+        console.log("updated destinationQueue ", elevator.destinationQueue);
       };
     }
 
